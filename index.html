@@ -1,0 +1,141 @@
+<!-- تم اختصار الشرح، هذا هو الكود الكامل بعد التعديلات الأساسية والتحسينات -->
+
+<!DOCTYPE html>
+
+<html lang="ar" dir="rtl" id="htmlElement">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Battle Lands</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+/* === نفس الستايل السابق بدون تغيير جوهري === */
+body{margin:0;background:#000;color:#fff;font-family:Segoe UI;overflow:hidden}
+canvas{position:fixed;top:0;left:0}
+.lang-btn.active{background:#ff4655}
+</style>
+</head>
+<body>
+
+<div class="language-selector">
+<button class="lang-btn active" onclick="changeLanguage('ar',this)">العربية</button>
+<button class="lang-btn" onclick="changeLanguage('en',this)">English</button>
+</div>
+
+<div id="welcomeScreen">
+<input id="playerNameInput" placeholder="أدخل اسمك">
+<button onclick="savePlayerName()">ابدأ</button>
+</div>
+
+<canvas id="gameCanvas"></canvas>
+
+<script>
+/* ================== بيانات ================== */
+const translations={ar:{gameOver:"انتهت اللعبة"},en:{gameOver:"Game Over"}};
+let currentLanguage='ar';
+let playerName='المحارب';
+let gameActive=false;
+let currentWorld=1;
+const totalWorlds=5;
+
+const playerStats={health:100,maxHealth:100,score:0,kills:0,weaponsCollected:1,currentWeapon:0,level:1,exp:0,expToNext:500};
+
+const canvas=document.getElementById('gameCanvas');
+const ctx=canvas.getContext('2d');
+canvas.width=innerWidth;canvas.height=innerHeight;
+
+/* ================== لغة ================== */
+function changeLanguage(lang,btn){
+ currentLanguage=lang;
+ document.getElementById('htmlElement').lang=lang;
+ document.getElementById('htmlElement').dir=lang==='ar'?'rtl':'ltr';
+ document.querySelectorAll('.lang-btn').forEach(b=>b.classList.remove('active'));
+ btn.classList.add('active');
+}
+
+/* ================== حفظ ================== */
+function saveGame(){
+ localStorage.setItem('BL_SAVE',JSON.stringify({playerName,playerStats,currentWorld,currentLanguage}));
+}
+function loadGame(){
+ const s=localStorage.getItem('BL_SAVE');
+ if(!s)return;
+ const d=JSON.parse(s);
+ playerName=d.playerName;
+ Object.assign(playerStats,d.playerStats);
+ currentWorld=d.currentWorld;
+ currentLanguage=d.currentLanguage;
+}
+setInterval(saveGame,5000);
+
+/* ================== لاعب ================== */
+const player={x:400,y:400,w:50,h:80,speed:6,vy:0,jump:false,cd:0,face:1,dash:0};
+
+const keys={};
+addEventListener('keydown',e=>{keys[e.key]=true;if(e.key===' '&&player.cd<=0)attack();if(e.key==='Shift'&&player.dash<=0){player.x+=player.face*120;player.dash=120}});
+addEventListener('keyup',e=>keys[e.key]=false);
+
+/* ================== أعداء ================== */
+let enemies=[];
+function spawnEnemy(){
+ enemies.push({x:Math.random()>0.5?-50:canvas.width+50,y:canvas.height-150,hp:50+currentWorld*20,max:50+currentWorld*20,speed:2});
+}
+
+/* ================== هجوم ================== */
+function attack(){
+ player.cd=20;
+ enemies.forEach((e,i)=>{
+  const dx=player.x-e.x,dy=player.y-e.y;
+  if(dx*dx+dy*dy<120*120){
+   e.hp-=20;
+   if(e.hp<=0){
+    enemies.splice(i,1);
+    playerStats.kills++;
+    playerStats.score+=100;
+    playerStats.exp+=50;
+    if(playerStats.exp>=playerStats.expToNext){
+     playerStats.level++;
+     playerStats.exp=0;
+     playerStats.expToNext+=250;
+     playerStats.maxHealth+=20;
+     playerStats.health=playerStats.maxHealth;
+    }
+   }
+  }
+ });
+}
+
+/* ================== تحديث ================== */
+function update(){
+ if(!gameActive)return;
+ if(keys['a']){player.x-=player.speed;player.face=-1}
+ if(keys['d']){player.x+=player.speed;player.face=1}
+ if(keys['w']&&!player.jump){player.vy=-18;player.jump=true}
+ player.y+=player.vy;player.vy+=0.8;
+ if(player.y>canvas.height-150){player.y=canvas.height-150;player.vy=0;player.jump=false}
+ if(player.cd>0)player.cd--; if(player.dash>0)player.dash--;
+ enemies.forEach(e=>{const dx=player.x-e.x;if(Math.abs(dx)>40)e.x+=Math.sign(dx)*e.speed});
+}
+
+/* ================== رسم ================== */
+function draw(){
+ ctx.clearRect(0,0,canvas.width,canvas.height);
+ ctx.fillStyle='#1e90ff';ctx.fillRect(player.x-25,player.y-40,50,80);
+ ctx.fillStyle='red';enemies.forEach(e=>ctx.fillRect(e.x-20,e.y-20,40,40));
+}
+
+/* ================== لوب ================== */
+function loop(){update();draw();requestAnimationFrame(loop)}
+
+/* ================== بدء ================== */
+function savePlayerName(){
+ playerName=document.getElementById('playerNameInput').value||playerName;
+ document.getElementById('welcomeScreen').style.display='none';
+ gameActive=true;spawnEnemy();loop();
+}
+
+loadGame();
+</script>
+
+</body>
+</html>
